@@ -157,23 +157,33 @@ func tableHandlesToKVRanges(tid int64, handles []int64) []kv.KeyRange {
 }
 
 // indexValuesToKVRanges will convert the index datums to kv ranges.
-func indexValuesToKVRanges(tid, idxID int64, values [][]types.Datum) ([]kv.KeyRange, error) {
+func indexValuesToKVRanges(tid, idxID int64, values [][]types.Datum, descIndex bool) ([]kv.KeyRange, error) {
 	krs := make([]kv.KeyRange, 0, len(values))
 	for _, vals := range values {
 		// TODO: We don't process the case that equal key has different types.
-		valKey, err := codec.EncodeKey(nil, vals...)
+		var valKey []byte
+		var err error
+		if descIndex {
+			valKey, err = codec.EncodeDescKey(nil, vals...)
+		} else {
+			valKey, err = codec.EncodeKey(nil, vals...)
+		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		valKeyNext := []byte(kv.Key(valKey).PrefixNext())
 		rangeBeginKey := tablecodec.EncodeIndexSeekKey(tid, idxID, valKey)
 		rangeEndKey := tablecodec.EncodeIndexSeekKey(tid, idxID, valKeyNext)
-		krs = append(krs, kv.KeyRange{StartKey: rangeBeginKey, EndKey: rangeEndKey})
+		if descIndex {
+			krs = append([]kv.KeyRange{{StartKey: rangeBeginKey, EndKey: rangeEndKey}}, krs...)
+		} else {
+			krs = append(krs, kv.KeyRange{StartKey: rangeBeginKey, EndKey: rangeEndKey})
+		}
 	}
 	return krs, nil
 }
 
-func indexRangesToKVRanges(sc *variable.StatementContext, tid, idxID int64, ranges []*types.IndexRange, fieldTypes []*types.FieldType) ([]kv.KeyRange, error) {
+func indexRangesToKVRanges(sc *variable.StatementContext, tid, idxID int64, ranges []*types.IndexRange, fieldTypes []*types.FieldType, descIndex bool) ([]kv.KeyRange, error) {
 	krs := make([]kv.KeyRange, 0, len(ranges))
 	for _, ran := range ranges {
 		err := convertIndexRangeTypes(sc, ran, fieldTypes)
@@ -181,23 +191,45 @@ func indexRangesToKVRanges(sc *variable.StatementContext, tid, idxID int64, rang
 			return nil, errors.Trace(err)
 		}
 
-		low, err := codec.EncodeKey(nil, ran.LowVal...)
+		var low, high []byte
+		if descIndex {
+			// Reverse range here.
+			ran = ran.ReverseRange()
+			low, err = codec.EncodeDescKey(nil, ran.LowVal...)
+		} else {
+			low, err = codec.EncodeKey(nil, ran.LowVal...)
+		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		if ran.LowExclude {
 			low = []byte(kv.Key(low).PrefixNext())
 		}
-		high, err := codec.EncodeKey(nil, ran.HighVal...)
+
+		if descIndex {
+			high, err = codec.EncodeDescKey(nil, ran.HighVal...)
+		} else {
+			high, err = codec.EncodeKey(nil, ran.HighVal...)
+		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		if !ran.HighExclude {
 			high = []byte(kv.Key(high).PrefixNext())
 		}
+
 		startKey := tablecodec.EncodeIndexSeekKey(tid, idxID, low)
 		endKey := tablecodec.EncodeIndexSeekKey(tid, idxID, high)
-		krs = append(krs, kv.KeyRange{StartKey: startKey, EndKey: endKey})
+
+		if descIndex {
+			// The first range is the largest in descending order index,
+			// so we append it at the beginning.
+			krs = append([]kv.KeyRange{{StartKey: startKey, EndKey: endKey}}, krs...)
+		} else {
+			krs = append(krs, kv.KeyRange{StartKey: startKey, EndKey: endKey})
+		}
 	}
 	return krs, nil
 }
@@ -843,7 +875,7 @@ func (e *IndexLookUpExecutor) indexRangesToKVRanges() ([]kv.KeyRange, error) {
 	for i, v := range e.index.Columns {
 		fieldTypes[i] = &(e.table.Cols()[v.Offset].FieldType)
 	}
-	return indexRangesToKVRanges(e.ctx.GetSessionVars().StmtCtx, e.tableID, e.index.ID, e.ranges, fieldTypes)
+	return indexRangesToKVRanges(e.ctx.GetSessionVars().StmtCtx, e.tableID, e.index.ID, e.ranges, fieldTypes, e.index.Desc)
 }
 
 // doRequestForDatums constructs kv ranges by datums. It is used by index look up join.

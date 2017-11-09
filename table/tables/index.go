@@ -166,7 +166,17 @@ func (c *index) GenIndexKey(indexedValues []types.Datum, h int64) (key []byte, d
 	key = append(key, []byte(c.prefix)...)
 	key, err = codec.EncodeKey(key, indexedValues...)
 	if !distinct && err == nil {
-		key, err = codec.EncodeKey(key, types.NewDatum(h))
+		if c.idxInfo.Desc {
+			key, err = codec.EncodeDescKey(key, indexedValues...)
+		} else {
+			key, err = codec.EncodeKey(key, indexedValues...)
+		}
+	} else {
+		if c.idxInfo.Desc {
+			key, err = codec.EncodeDescKey(key, append(indexedValues, types.NewDatum(h))...)
+		} else {
+			key, err = codec.EncodeKey(key, append(indexedValues, types.NewDatum(h))...)
+		}
 	}
 	if err != nil {
 		return nil, false, errors.Trace(err)
