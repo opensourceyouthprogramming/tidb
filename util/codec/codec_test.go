@@ -759,7 +759,7 @@ func (s *testCodecSuite) TestJSON(c *C) {
 	}
 
 	bytes := make([]byte, 0, 4096)
-	bytes, err := encode(bytes, datums, false, false)
+	bytes, err := encode(bytes, datums, false, false, false)
 	c.Assert(err, IsNil)
 
 	datums1, err := Decode(bytes, 2)

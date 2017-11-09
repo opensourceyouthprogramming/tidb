@@ -880,7 +880,7 @@ func (e *IndexLookUpExecutor) indexRangesToKVRanges() ([]kv.KeyRange, error) {
 
 // doRequestForDatums constructs kv ranges by datums. It is used by index look up join.
 func (e *IndexLookUpExecutor) doRequestForDatums(goCtx goctx.Context, values [][]types.Datum) error {
-	kvRanges, err := indexValuesToKVRanges(e.tableID, e.index.ID, values)
+	kvRanges, err := indexValuesToKVRanges(e.tableID, e.index.ID, values, e.desc)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1026,7 +1026,7 @@ func (builder *requestBuilder) SetIndexRanges(sc *variable.StatementContext, tid
 	if builder.err != nil {
 		return builder
 	}
-	builder.Request.KeyRanges, builder.err = indexRangesToKVRanges(sc, tid, idxID, ranges, fieldTypes)
+	builder.Request.KeyRanges, builder.err = indexRangesToKVRanges(sc, tid, idxID, ranges, fieldTypes, false)
 	return builder
 }
 
@@ -1039,7 +1039,7 @@ func (builder *requestBuilder) SetIndexValues(tid, idxID int64, values [][]types
 	if builder.err != nil {
 		return builder
 	}
-	builder.Request.KeyRanges, builder.err = indexValuesToKVRanges(tid, idxID, values)
+	builder.Request.KeyRanges, builder.err = indexValuesToKVRanges(tid, idxID, values, false)
 	return builder
 }
 

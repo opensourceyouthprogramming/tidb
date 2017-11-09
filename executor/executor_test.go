@@ -1073,10 +1073,6 @@ func (s *testSuite) TestIndexReverseOrder(c *C) {
 }
 
 func (s *testSuite) TestDescIndexOrderBy(c *C) {
-	defer func() {
-		s.cleanEnv(c)
-		testleak.AfterTest(c)()
-	}()
 	tk := testkit.NewTestKit(c, s.store)
 	tk.MustExec("use test")
 
