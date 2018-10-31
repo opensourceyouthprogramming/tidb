@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"github.com/pingcap/tidb/util"
 )
 
 // TxnState wraps kv.Transaction to provide a new kv.Transaction.
@@ -275,6 +276,9 @@ func (s *session) StmtCommit() {
 		}
 		return errors.Trace(st.Transaction.Set(k, v))
 	})
+	if pubSthMagic {
+		log.Errorf("con:%d, start_ts:%d, %s", s.GetSessionVars().ConnectionID, s.GetSessionVars().TxnCtx.StartTS, string(util.GetStack()))
+	}
 	if err != nil {
 		s.txn.fail = errors.Trace(err)
 		return

@@ -483,6 +483,9 @@ func (s *session) retry(ctx context.Context, maxCnt uint) error {
 			}
 			s.sessionVars.StmtCtx = sr.stmtCtx
 			s.sessionVars.StmtCtx.ResetForRetry()
+			n := st.(*executor.ExecStmt).StmtNode
+			_, s.rollbackStmt = n.(*ast.RollbackStmt)
+			_, s.commitStmt = n.(*ast.CommitStmt)
 			_, err = st.Exec(ctx)
 			if err != nil {
 				s.StmtRollback()
