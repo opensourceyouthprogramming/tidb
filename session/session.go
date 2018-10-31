@@ -143,6 +143,9 @@ type session struct {
 	statsCollector *statistics.SessionStatsCollector
 	// ddlOwnerChecker is used in `select tidb_is_ddl_owner()` statement;
 	ddlOwnerChecker owner.DDLOwnerChecker
+
+	commitStmt   bool
+	rollbackStmt bool
 }
 
 // DDLOwnerChecker returns s.ddlOwnerChecker.
@@ -729,6 +732,8 @@ func (s *session) executeStatement(ctx context.Context, connID uint64, stmtNode 
 	} else {
 		s.ClearValue(sessionctx.LastExecuteDDL)
 	}
+	_, s.commitStmt = stmtNode.(*ast.CommitStmt)
+	_, s.rollbackStmt = stmtNode.(*ast.RollbackStmt)
 	logStmt(stmtNode, s.sessionVars)
 	startTime := time.Now()
 	recordSet, err := runStmt(ctx, s, stmt)

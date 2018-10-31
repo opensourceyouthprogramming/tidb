@@ -257,11 +257,19 @@ func (s *session) StmtCommit() {
 
 	defer s.txn.cleanup()
 	st := &s.txn
+	pubSthMagic := (s.commitStmt || s.rollbackStmt) && (st.buf.Size() > 0 || st.buf.Len() > 0)
 	err := kv.WalkMemBuffer(st.buf, func(k kv.Key, v []byte) error {
 		// gofail: var mockStmtCommitError bool
 		// if mockStmtCommitError {
 		// 	return errors.New("mock stmt commit error")
 		// }
+		if pubSthMagic {
+			t := "COMMIT_WITH_DATA"
+			if s.rollbackStmt {
+				t = "ROLLBACK_WITH_DATA"
+			}
+			log.Errorf("[%s]con:%d, start_ts:%d, k:%x, v:%x", t, s.GetSessionVars().ConnectionID, s.GetSessionVars().TxnCtx.StartTS, k, v)
+		}
 		if len(v) == 0 {
 			return errors.Trace(st.Transaction.Delete(k))
 		}
