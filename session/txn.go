@@ -21,11 +21,11 @@ import (
 	"github.com/pingcap/tidb/store/tikv/oracle"
 	"github.com/pingcap/tidb/table"
 	"github.com/pingcap/tidb/types"
+	"github.com/pingcap/tidb/util"
 	binlog "github.com/pingcap/tipb/go-binlog"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"github.com/pingcap/tidb/util"
 )
 
 // TxnState wraps kv.Transaction to provide a new kv.Transaction.
